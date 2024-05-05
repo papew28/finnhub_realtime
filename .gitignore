@@ -1,0 +1,8 @@
+
+#variables d'environnement
+
+venv
+env
+env/
+.ini
+config
