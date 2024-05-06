@@ -1,8 +1,9 @@
 import websocket
 import json
-
+#
 def on_message(ws, message):
-    print(json.loads(message))
+    message=json.loads(list(message.split())[0])
+    
 
 def on_error(ws, error):
     print(error)
@@ -11,10 +12,8 @@ def on_close(ws):
     print("### closed ###")
 
 def on_open(ws):
-    ws.send('{"type":"subscribe","symbol":"AAPL"}')
-    ws.send('{"type":"subscribe","symbol":"AMZN"}')
     ws.send('{"type":"subscribe","symbol":"BINANCE:BTCUSDT"}')
-    ws.send('{"type":"subscribe","symbol":"IC MARKETS:1"}')
+   
 
 if __name__ == "__main__":
     websocket.enableTrace(True)
