@@ -1,10 +1,9 @@
-import websocket
 import finnhub
 import avro.schema
 from avro.io import DatumWriter, DatumReader
+from avro.schema import parse
 import io
 from .constant import api_key
-import json
 
 def connect_client():
        return finnhub.Client(api_key=api_key)
@@ -23,7 +22,8 @@ def validate_ticker(ticker):
     
 
 def encode_avro(schema, data):
-    writer = DatumWriter(schema)
+    parsed_schema = parse(schema)
+    writer = DatumWriter(parsed_schema)
     bytes_writer = io.BytesIO()
     encoder = avro.io.BinaryEncoder(bytes_writer)
     writer.write(data, encoder)

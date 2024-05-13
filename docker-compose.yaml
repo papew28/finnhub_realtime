@@ -1,6 +1,7 @@
 version: '3.8'
 services:
 
+
   zookeeper:
     image: confluentinc/cp-zookeeper:latest
     container_name: zookeeper
@@ -36,6 +37,7 @@ services:
       - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
       - KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0
       - KAFKA_CONFLUENT_LICENSE_TOPIC_REPLICATION_FACTOR=1
+      - KAFKA_CONFLUENT_SCHEMA_REGISTRY_URL=http://schema-registry:8081
       - KAFKA_CONFLUENT_BALANCER_TOPIC_REPLICATION_FACTOR=1
       - KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=1
       - KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1
@@ -61,6 +63,7 @@ services:
     environment:
       - SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS=kafka_broker:29092  
       - SCHEMA_REGISTRY_HOST_NAME=schema_registry
+      - SCHEMA_REGISTRY_LISTENERS=http://0.0.0.0:8081
     networks:
       - kafka-network
     healthcheck:
@@ -77,7 +80,7 @@ services:
        schema_registry:
           condition: service_healthy
     ports:
-      - "9021:9021"
+      - "9022:9021"
     environment:
       - CONTROL_CENTER_BOOTSTRAP_SERVERS=kafka_broker:29092
       - CONTROL_CENTER_ZOOKEEPER_CONNECT=zookeeper:2181
@@ -86,7 +89,71 @@ services:
       - CONTROL_CENTER_REPLICATION_FACTOR=1 
       - CONFLUENT_METRICS_TOPIC_REPLICATION=1
       - CONFLUENT_METRICS_ENABLE=false
+      - PORT = 9022
     networks:
       - kafka-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9022/heath"]
+      interval: 50s
+      timeout: 30s
+      retries: 5
+      start_period: 30s
+  
+  spark-master:
+    image: bitnami/spark:latest
+    volumes:
+       - ./jobs:/opt/spark/jobs
+    networks:
+        - kafka-network
+    container_name: spark-master
+    hostname: spark-master
+    ports:
+      - "9090:8080"
+      - "7077:7077"
+    environment:
+      - SPARK_MODE=master
+      - SPARK_MASTER_HOST=spark-master
+    command: bin/spark-class org.apache.spark.deploy.master.Master  
+    
+  spark-worker1:
+    image: bitnami/spark:latest
+    container_name: spark-worker1
+    hostname: spark-worker1
+    ports:
+      - "8083:8081"
+    depends_on:
+      - spark-master
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_CORES=2
+      - SPARK_WORKER_MEMORY=1g
+    volumes:
+       - ./jobs:/opt/spark/jobs
+    networks:
+        - kafka-network
+    command: bin/spark-class org.apache.spark.deploy.worker.Worker  spark://spark-master:7077
+
+  spark-worker2:
+    image: bitnami/spark:latest
+    container_name: spark-worker2
+    hostname: spark-worker2
+    ports:
+      - "8084:8081"
+    depends_on:
+      - spark-master
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_CORES=2
+      - SPARK_WORKER_MEMORY=1g
+    volumes:
+       - ./jobs:/opt/spark/jobs
+    networks:
+        - kafka-network
+    command: bin/spark-class org.apache.spark.deploy.worker.Worker  spark://spark-master:7077
+    
+  
+
 networks:
   kafka-network:

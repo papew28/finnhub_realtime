@@ -25,8 +25,9 @@ def on_message(ws, message):
                             "type":message["type"]
                           } 
                        )
-    print(message["data"])
-    #producer.send(topic_name,value=avro_mess)
+    producer.produce(topic_name,value=avro_mess)
+
+    producer.poll(0)
     
 def on_error(ws, error):
     print(error)
