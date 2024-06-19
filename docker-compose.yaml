@@ -109,13 +109,14 @@ services:
     volumes:
       - ./jobs:/opt/bitnami/spark/jobs
       - ./data:/opt/bitnami/spark/data
+      - ./requirements.txt:/opt/bitnami/spark/requirements.txt
     ports:
       - "9090:8080"
       - "7077:7077"
     environment:
       - SPARK_MODE=master
       - SPARK_MASTER_HOST=spark-master
-    command: bin/spark-class org.apache.spark.deploy.master.Master  
+    command: bash -c "pip install -r /opt/bitnami/spark/requirements.txt && bin/spark-class org.apache.spark.deploy.master.Master"
     
   spark-worker1:
     image: bitnami/spark:latest
@@ -153,7 +154,41 @@ services:
        - ./data:/opt/bitnami/spark/data
     networks:
         - kafka-network
-    command: bin/spark-class org.apache.spark.deploy.worker.Worker  spark://spark-master:7077
+    command: bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
+
+  cassandra:
+    image: cassandra:5.0
+    container_name: cassandra
+    hostname: cassandra
+    ports:
+      - "9042:9042"
+    networks:
+      - kafka-network
+    environment:
+      - CASSSANDRA_USER=cassandra
+      - CASSANDRA_PASSWORD=cassandra
+    depends_on:
+      - kafka_broker
+      - zookeeper
+      - spark-master
+      - spark-worker1
+      - spark-worker2
+    healthcheck:
+      test: ["CMD", "cqlsh", "-e", "DESCRIBE KEYSPACES"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+  streaming:
+    build: 
+       context: ./streaming
+       dockerfile: Dockerfile
+    container_name: streaming
+    hostname: streaming
+    networks:
+      - kafka-network
+    volumes:
+      - ./utils:/apt/utils
+    
     
   
 
