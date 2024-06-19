@@ -30,3 +30,9 @@ def encode_avro(schema, data):
     raw_bytes = bytes_writer.getvalue()
     return raw_bytes
 
+def decode_avro(schema, data):
+    parsed_schema = parse(schema)
+    reader = DatumReader(parsed_schema)
+    bytes_reader = io.BytesIO(data)
+    decoder = avro.io.BinaryDecoder(bytes_reader)
+    return reader.read(decoder)

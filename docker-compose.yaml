@@ -1,6 +1,7 @@
 version: '3.8'
 services:
 
+  
 
   zookeeper:
     image: confluentinc/cp-zookeeper:latest
@@ -101,12 +102,13 @@ services:
   
   spark-master:
     image: bitnami/spark:latest
-    volumes:
-       - ./jobs:/opt/spark/jobs
     networks:
         - kafka-network
     container_name: spark-master
     hostname: spark-master
+    volumes:
+      - ./jobs:/opt/bitnami/spark/jobs
+      - ./data:/opt/bitnami/spark/data
     ports:
       - "9090:8080"
       - "7077:7077"
@@ -129,7 +131,7 @@ services:
       - SPARK_WORKER_CORES=2
       - SPARK_WORKER_MEMORY=1g
     volumes:
-       - ./jobs:/opt/spark/jobs
+       - ./data:/opt/bitnami/spark/data
     networks:
         - kafka-network
     command: bin/spark-class org.apache.spark.deploy.worker.Worker  spark://spark-master:7077
@@ -148,7 +150,7 @@ services:
       - SPARK_WORKER_CORES=2
       - SPARK_WORKER_MEMORY=1g
     volumes:
-       - ./jobs:/opt/spark/jobs
+       - ./data:/opt/bitnami/spark/data
     networks:
         - kafka-network
     command: bin/spark-class org.apache.spark.deploy.worker.Worker  spark://spark-master:7077
