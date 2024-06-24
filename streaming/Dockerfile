@@ -1,16 +1,11 @@
-FROM python:3.7-slim
+FROM python:3
 
-COPY  ./requirements.txt /app/requirements.txt
+WORKDIR /usr/src/app
 
-RUN   apt-get update && apt-get install -y \
-        && pip install --upgrade pip \
-        && pip install -r /app/requirements.txt\
-        && apt-get clean \
-        && rm -rf /var/lib/apt/lists/*
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
 
-COPY ../kafka_broker/producer.py /app/producer.py
+COPY ./streamapp.py ./
 
-WORKDIR /app
-
-ENTRYPOINT [ "python"]
-CMD ["producer.py"]
+ENTRYPOINT [ "python" ]
+CMD [ "streamapp.py" ]

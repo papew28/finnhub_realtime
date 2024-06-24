@@ -94,6 +94,7 @@ def create_table(session):
 def create_session():
     cluster = Cluster(['localhost'])
     session = cluster.connect()
+    print("connected to cassandra")
     return session
 
 def for_each_batch_function(df, epoch_id):
@@ -111,34 +112,33 @@ def main():
     spark = create_spark_session()
     
     kafka_stream = spark.readStream \
-                        .format("kafka") \
-                        .option("kafka.bootstrap.servers", "kafka_broker:29092") \
-                        .option("subscribe", "trading_data") \
-                        .load()
+                       .format("kafka") \
+                       .option("kafka.bootstrap.servers", "kafka_broker:29092") \
+                       .option("subscribe", "trading_data") \
+                       .load()
     
     kafka_stream_data = kafka_stream.selectExpr("CAST(value AS BINARY)")
     kafka_deserialized = kafka_stream_data.select(from_avro(col("value"), avro_schema).alias("data"))
     kafka_final_data = kafka_deserialized.select("data.*")
     trading_data =kafka_final_data.select(explode(col("data")).alias("data"))\
-                                  .select("data.*")
+                               .select("data.*")
     
 
     trading_data = trading_data \
-    .withColumnRenamed("c", "trading condition") \
-    .withColumnRenamed("s", "symbol") \
-    .withColumnRenamed("p", "price") \
-    .withColumnRenamed("t", "timestamp") \
-    .withColumnRenamed("v", "volume")
+                  .withColumnRenamed("c", "trading condition") \
+                  .withColumnRenamed("s", "symbol") \
+                  .withColumnRenamed("p", "price") \
+                  .withColumnRenamed("t", "timestamp") \
+                  .withColumnRenamed("v", "volume")
 
     transformed_data = trading_data.withColumn(
     "timestamp",
-    (col("timestamp") / 1000).cast("timestamp")
-)
+   (col("timestamp") / 1000).cast("timestamp")
+ )
         
     cassandra_session = create_session()
     create_keyspace(cassandra_session)
     create_table(cassandra_session)
-
     query = transformed_data.writeStream \
         .foreachBatch(for_each_batch_function) \
         .start()

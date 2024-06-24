@@ -178,18 +178,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
-  streaming:
-    build: 
-       context: ./streaming
-       dockerfile: Dockerfile
-    container_name: streaming
-    hostname: streaming
-    networks:
-      - kafka-network
-    volumes:
-      - ./utils:/apt/utils
-    
-    
+ 
+      
   
 
 networks:
