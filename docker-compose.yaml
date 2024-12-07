@@ -1,8 +1,5 @@
-version: '3.8'
+
 services:
-
-  
-
   zookeeper:
     image: confluentinc/cp-zookeeper:latest
     container_name: zookeeper
@@ -21,16 +18,16 @@ services:
       retries: 3
 
   kafka_broker:
-     image: confluentinc/cp-kafka:latest
-     container_name: kafka_broker
-     hostname: kafka_broker
-     depends_on:
-       zookeeper:
-          condition: service_healthy
-     ports:
-        - "9092:9092"
-        - "9101:9101"
-     environment:
+    image: confluentinc/cp-kafka:latest
+    container_name: kafka_broker
+    hostname: kafka_broker
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+      - "9101:9101"
+    environment:
       - KAFKA_BROKER_ID=1
       - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
       - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
@@ -44,21 +41,21 @@ services:
       - KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1
       - KAFKA_JMX_PORT=9101
       - KAFKA_JMX_HOSTNAME=localhost
-     networks:
-       - kafka-network
-     healthcheck:
-        test: [ "CMD", "bash", "-c", 'nc -z localhost 9092' ]
-        interval: 10s
-        timeout: 5s
-        retries: 5
+    networks:
+      - kafka-network
+    healthcheck:
+      test: [ "CMD", "bash", "-c", 'nc -z localhost 9092' ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   schema_registry:
     image: confluentinc/cp-schema-registry:latest
     container_name: schema_registry
     hostname: schema_registry
     depends_on:
-       kafka_broker:
-          condition: service_healthy
+      kafka_broker:
+        condition: service_healthy
     ports:
       - "8081:8081"
     environment:
@@ -68,18 +65,18 @@ services:
     networks:
       - kafka-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8081"]
-      interval: 10s
-      timeout: 5s
-      retries: 3 
-  
+      test: ["CMD", "curl", "-f", "http://localhost:8081/subjects"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   control_center:
     image: confluentinc/cp-enterprise-control-center:latest
     container_name: control_center
     hostname: control_center
     depends_on:
-       schema_registry:
-          condition: service_healthy
+      schema_registry:
+        condition: service_healthy
     ports:
       - "9022:9021"
     environment:
@@ -90,11 +87,11 @@ services:
       - CONTROL_CENTER_REPLICATION_FACTOR=1 
       - CONFLUENT_METRICS_TOPIC_REPLICATION=1
       - CONFLUENT_METRICS_ENABLE=false
-      - PORT = 9022
+      - PORT=9022
     networks:
       - kafka-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9022/heath"]
+      test: ["CMD", "curl", "-f", "http://localhost:9022/health"]
       interval: 50s
       timeout: 30s
       retries: 5
@@ -103,8 +100,8 @@ services:
   spark-master:
     image: bitnami/spark:latest
     networks:
-        - kafka-network
-    container_name: spark-master
+      - kafka-network
+    container_name: spark-master-finhub
     hostname: spark-master
     volumes:
       - ./jobs:/opt/bitnami/spark/jobs
@@ -115,8 +112,16 @@ services:
       - "7077:7077"
     environment:
       - SPARK_MODE=master
-      - SPARK_MASTER_HOST=spark-master
-    command: bash -c "pip install -r /opt/bitnami/spark/requirements.txt && bin/spark-class org.apache.spark.deploy.master.Master"
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+    command: bash -c "pip install -r /opt/bitnami/spark/requirements.txt && /opt/bitnami/spark/sbin/start-master.sh"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     
   spark-worker1:
     image: bitnami/spark:latest
@@ -125,17 +130,22 @@ services:
     ports:
       - "8083:8081"
     depends_on:
-      - spark-master
+      spark-master:
+        condition: service_healthy
     environment:
       - SPARK_MODE=worker
       - SPARK_MASTER_URL=spark://spark-master:7077
-      - SPARK_WORKER_CORES=2
+      - SPARK_WORKER_CORES=1
       - SPARK_WORKER_MEMORY=1g
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
     volumes:
-       - ./data:/opt/bitnami/spark/data
+      - ./data:/opt/bitnami/spark/data
     networks:
-        - kafka-network
-    command: bin/spark-class org.apache.spark.deploy.worker.Worker  spark://spark-master:7077
+      - kafka-network
+    command: /opt/bitnami/spark/sbin/start-worker.sh spark://spark-master:7077
 
   spark-worker2:
     image: bitnami/spark:latest
@@ -144,17 +154,22 @@ services:
     ports:
       - "8084:8081"
     depends_on:
-      - spark-master
+      spark-master:
+        condition: service_healthy
     environment:
       - SPARK_MODE=worker
       - SPARK_MASTER_URL=spark://spark-master:7077
-      - SPARK_WORKER_CORES=2
+      - SPARK_WORKER_CORES=1
       - SPARK_WORKER_MEMORY=1g
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
     volumes:
-       - ./data:/opt/bitnami/spark/data
+      - ./data:/opt/bitnami/spark/data
     networks:
-        - kafka-network
-    command: bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
+      - kafka-network
+    command: /opt/bitnami/spark/sbin/start-worker.sh spark://spark-master:7077
 
   cassandra:
     image: cassandra:5.0
@@ -165,22 +180,45 @@ services:
     networks:
       - kafka-network
     environment:
-      - CASSSANDRA_USER=cassandra
+      - CASSANDRA_USER=cassandra
       - CASSANDRA_PASSWORD=cassandra
+      - CASSANDRA_BROADCAST_ADDRESS=cassandra
+      - CASSANDRA_LISTEN_ADDRESS=cassandra
+      - CASSANDRA_RPC_ADDRESS=0.0.0.0
     depends_on:
-      - kafka_broker
-      - zookeeper
-      - spark-master
-      - spark-worker1
-      - spark-worker2
+      kafka_broker:
+        condition: service_healthy
+      zookeeper:
+        condition: service_healthy
+      spark-master:
+        condition: service_healthy
+    volumes:
+      - cassandra_data:/var/lib/cassandra
     healthcheck:
       test: ["CMD", "cqlsh", "-e", "DESCRIBE KEYSPACES"]
       interval: 10s
       timeout: 5s
       retries: 3
- 
-      
-  
 
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_INSTALL_PLUGINS=hadesarchitect-cassandra-datasource
+    networks:
+      - kafka-network
+    depends_on:
+      cassandra:
+        condition: service_healthy
+    volumes:
+      - grafana_data:/var/lib/grafana
 networks:
   kafka-network:
+
+volumes:
+  cassandra_data:
+  grafana_data:

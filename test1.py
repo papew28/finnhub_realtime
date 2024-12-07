@@ -1,6 +1,8 @@
 import websocket
 import json
 #
+
+symbols = ["MSFT", "AAPL", "GOOGL", "AMZN"]
 def on_message(ws, message):
     message=json.loads(list(message.split())[0])
     
@@ -12,7 +14,7 @@ def on_close(ws):
     print("### closed ###")
 
 def on_open(ws):
-    ws.send('{"type":"subscribe","symbol":"BINANCE:BTCUSDT"}')
+    ws.send('{"type":"subscribe","symbol":"MSFT"}')
    
 
 if __name__ == "__main__":
